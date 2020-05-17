@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">Android Rc</string>
+
+    <string name="app_error_general_rotationsensornotfound">Sensor rotation not found</string>
+
+    <string name="app_label_main_bluetoothstatus">Status: %s</string>
+    <string name="app_text_main_bluetoothdisconnected">Disconnected</string>
+    <string name="app_text_main_bluetoothconnected">Connected</string>
+    <string name="app_text_main_bluetoothconnecting">Connecting…</string>
+    <string name="app_text_main_bluetoothdisconnecting">Disconnecting…</string>
+    <string name="app_text_main_sensorvalues">[ %1$.03f | %2$.03f ]</string>
+    <string name="app_text_main_pwmvalues">[ %1$d | %2$d ]</string>
+    <string name="app_message_main_devicevonnected">Connect with %s</string>
+    <string name="app_error_main_bluetoothunavailable">Bluetooth Unavailable</string>
+
+    <string name="app_action_main_bluetoothconnect">Connect</string>
+    <string name="app_action_main_bluetoothdisconnect">Disconnect</string>
+</resources>
