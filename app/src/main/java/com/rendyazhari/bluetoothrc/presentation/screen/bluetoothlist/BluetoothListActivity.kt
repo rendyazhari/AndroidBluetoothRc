@@ -4,7 +4,6 @@ import android.app.Activity
 import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.rendyazhari.bluetoothrc.databinding.AppActivityBluetoothlistBinding
@@ -45,19 +44,10 @@ class BluetoothListActivity : AppCompatActivity() {
         deviceAdapter.setItems(devices)
     }
 
-    private fun showMessage(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
     private fun returnResult(device: BluetoothDevice) {
         val data = Intent().apply {
             putExtra(ExtraKey.DEVICE, device)
         }
-//        data.putExtras(
-//            bundleOf(
-//                ExtraKey.DEVICE to device
-//            )
-//        )
         setResult(Activity.RESULT_OK, data)
         finish()
     }

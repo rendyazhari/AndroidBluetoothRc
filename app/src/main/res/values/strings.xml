@@ -11,7 +11,9 @@
     <string name="app_text_main_sensorvalues">[ %1$.03f | %2$.03f ]</string>
     <string name="app_text_main_pwmvalues">[ %1$d | %2$d ]</string>
     <string name="app_message_main_devicevonnected">Connect with %s</string>
+
     <string name="app_error_main_bluetoothunavailable">Bluetooth Unavailable</string>
+    <string name="app_error_main_bluetoothnotsupport">Doesn\'t support Bluetooth</string>
 
     <string name="app_action_main_bluetoothconnect">Connect</string>
     <string name="app_action_main_bluetoothdisconnect">Disconnect</string>

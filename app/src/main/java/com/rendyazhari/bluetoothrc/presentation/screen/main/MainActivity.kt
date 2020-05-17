@@ -9,6 +9,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.rendyazhari.bluetoothrc.R
@@ -18,7 +20,6 @@ import com.rendyazhari.bluetoothrc.presentation.screen.bluetoothlist.BluetoothLi
 import com.harrysoft.androidbluetoothserial.BluetoothManager
 import com.harrysoft.androidbluetoothserial.BluetoothSerialDevice
 import com.harrysoft.androidbluetoothserial.SimpleBluetoothDeviceInterface
-import com.orhanobut.logger.Logger
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
@@ -30,6 +31,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val binding by lazy {
         AppActivityMainBinding.inflate(layoutInflater)
     }
+
+    private val tag by lazy { localClassName }
 
     private val bluetoothManager by lazy { BluetoothManager.getInstance() }
 
@@ -135,10 +138,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun disconnectDevice() {
         connectedDevice?.second?.mac?.let { bluetoothManager.closeDevice(it) }
         bluetoothManager.close()
-
         deviceStatus = DeviceStatus.Disconnected
-        binding.appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothdisconnected)
-        binding.appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
+
+        with(binding) {
+            appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothdisconnected)
+            appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
+
+            appTextviewMainSensorvalue.visibility = View.INVISIBLE
+            appTextviewMainPwmvalue.visibility = View.INVISIBLE
+            appTextviewMainComvalue.visibility = View.INVISIBLE
+        }
     }
 
     private fun onConnected(device: BluetoothDevice, connectedDevice: BluetoothSerialDevice) {
@@ -150,7 +159,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 { onMessageSent(it) },
                 { onError(it) }
             )
-//            sendMessage("Alhamdulillah")
             sendMessage("255$255$")
         }
 
@@ -163,11 +171,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun onMessageSent(message: String) {
-        Logger.i("Sent: $message")
+        Log.i(tag, "Sent: $message")
     }
 
     private fun onMessageReceived(message: String) {
-        Logger.i("Received: $message")
+        Log.i(tag, "Received: $message")
     }
 
     private fun onError(throwable: Throwable) {
@@ -201,93 +209,77 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        Logger.i("Accuracy Changed: ${sensor.toString()} -> $accuracy")
+        Log.i(tag, "Accuracy Changed: ${sensor.toString()} -> $accuracy")
     }
 
     override fun onSensorChanged(sensorEvent: SensorEvent?) {
         val event = sensorEvent ?: return
-        var x: Float = event.values[0]
-        var y: Float = event.values[1]
-        val z: Float = event.values[2]
+        var axisX: Float = event.values[0]
+        var axisY: Float = event.values[1]
+        //val z: Float = event.values[2]
 
-        // Range = -4 - 4
+        axisX = getSensorValue(axisX)
+        axisY = getSensorValue(axisY)
 
-        x = getSensorValue(x)
-        y = getSensorValue(y)
+        binding.appTextviewMainSensorvalue.text = getString(R.string.app_text_main_sensorvalues, axisX, axisY)
 
-        binding.appTextviewMainSensorvalue.text = getString(R.string.app_text_main_sensorvalues, x, y)
+        var pwmSpeed = getPwmSpeed(axisX)
+        var speedLeft: Int
+        var speedRight: Int
 
-        var pwmSpeed = getPwmSpeed(x)
-        var speedLeft = 0
-        var speedRight = 0
-
-        if (x > 0) { // Mundur
-            x = x.absoluteValue
-            pwmSpeed = pwmSpeed.absoluteValue
-            if (y < 0) { //Kiri
-                speedRight = pwmSpeed
-                speedLeft = (((MIN - y) / MIN) * pwmSpeed).toInt()
-            } else {
-                speedLeft = pwmSpeed
-                speedRight = (((MAX - y) / MAX) * pwmSpeed).toInt()
-            }
-//            speedLeft = 255 - speedLeft
-//            speedRight = 255 - speedRight
-
-            speedLeft *= -1
-            speedRight *= -1
-        } else if (x < 0) {
-            x = x.absoluteValue
-            pwmSpeed = pwmSpeed.absoluteValue
-            if (y < 0) { //Kiri
-                speedRight = pwmSpeed
-                speedLeft = (((MIN - y) / MIN) * pwmSpeed).toInt()
-            } else {
-                speedLeft = pwmSpeed
-                speedRight = (((MAX - y) / MAX) * pwmSpeed).toInt()
-            }
-//            speedLeft = 255 - speedLeft
-//            speedRight = 255 - speedRight
+        if (axisX > 0) {
+            val motorSpeed = getMotorSpeed(axisY, pwmSpeed.absoluteValue)
+            speedLeft = motorSpeed.first * -1
+            speedRight = motorSpeed.second * -1
+        } else if (axisX < 0) {
+            val motorSpeed = getMotorSpeed(axisY, pwmSpeed.absoluteValue)
+            speedLeft = motorSpeed.first
+            speedRight = motorSpeed.second
         } else {
-            pwmSpeed = getPwmSpeed(y)
-            if (pwmSpeed == 0) {
-                speedLeft = 0
-                speedRight = 0
-            } else {
-                if (y < 0) {
-                    speedRight = 0
-                    speedLeft = pwmSpeed
-                } else {
-                    speedLeft = 0
-                    speedRight = pwmSpeed
-                }
+            pwmSpeed = getPwmSpeed(axisY)
+            speedLeft = 0
+            speedRight = 0
+
+            if (pwmSpeed > 0) {
+                if (axisY < 0) { speedLeft = pwmSpeed } else { speedRight = pwmSpeed }
             }
-//            speedLeft = 255 - speedLeft
-//            speedRight = 255 - speedRight
         }
 
         val content = "$speedLeft$$speedRight$\n"
         binding.appTextviewMainPwmvalue.text = getString(R.string.app_text_main_pwmvalues, speedLeft, speedRight)
         binding.appTextviewMainComvalue.text = content
-        deviceInterface?.sendMessage(content)
+
+        try {
+            deviceInterface?.sendMessage(content)
+        } catch (iae: IllegalArgumentException) {
+            iae.printStackTrace()
+            disconnectDevice()
+        }
     }
 
-    private fun getPwmSpeed(value: Float): Int {
-        return ((value / MAX) * MAX_PWM).toInt()
+    private fun getPwmSpeed(value: Float) = ((value / MAX) * MAX_PWM).toInt()
+
+    private fun getMotorSpeed(y: Float, pwmSpeed: Int): Pair<Int, Int> {
+        val speedLeft: Int
+        val speedRight: Int
+
+        if (y < 0) { //Kiri
+            speedRight = pwmSpeed
+            speedLeft = (((MIN - y) / MIN) * pwmSpeed).toInt()
+        } else {
+            speedLeft = pwmSpeed
+            speedRight = (((MAX - y) / MAX) * pwmSpeed).toInt()
+        }
+
+        return speedLeft to speedRight
     }
 
     private fun getSensorValue(value: Float) =
         when {
-            value < MIN -> {
-                MIN
-            }
-            value > MAX -> {
-                MAX
-            }
+            value < MIN -> MIN
+            value > MAX -> MAX
             value.absoluteValue < MID -> 0f
-            else -> {
-                value
-            }
+            else -> value
         }
 
     override fun onDestroy() {
@@ -299,9 +291,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     companion object {
         private const val REQUEST_CODE_BLUETOOTH_LIST = 101
 
-        private const val MAX = 4.5f
-        private const val MIN = -4.5f
-        private const val MID = 0.5f
+        private const val MAX = 5.5f
+        private const val MIN = -5.5f
+        private const val MID = 0.7f
         private const val MAX_PWM = 255
     }
 }
