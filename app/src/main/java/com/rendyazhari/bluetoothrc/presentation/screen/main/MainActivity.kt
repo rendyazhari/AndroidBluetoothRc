@@ -9,6 +9,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -47,6 +48,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val sensorManager by lazy { getSystemService(Context.SENSOR_SERVICE) as SensorManager }
 
     private var sensor: Sensor? = null
+
+    private val disconnectHandler by lazy { Handler() }
+
+    private val disconnectRunnable by lazy {
+        Runnable {
+            disconnectBluetooth()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,18 +145,41 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun disconnectDevice() {
+        binding.appButtonMainConnect.isEnabled = false
+        unregisterSensorListener()
+
+        sendMessage("0$0$\n", false)
+
+        disconnectHandler.postAtTime(disconnectRunnable, DISCONNECT_DELAY)
+    }
+
+    private fun setView(isEnable: Boolean) {
+        with(binding) {
+            if (isEnable) {
+                appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothconnected)
+                appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothdisconnect)
+
+                appTextviewMainSensorvalue.visibility = View.VISIBLE
+                appTextviewMainPwmvalue.visibility = View.VISIBLE
+                appTextviewMainComvalue.visibility = View.VISIBLE
+            } else {
+                appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothdisconnected)
+                appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
+
+                appTextviewMainSensorvalue.visibility = View.INVISIBLE
+                appTextviewMainPwmvalue.visibility = View.INVISIBLE
+                appTextviewMainComvalue.visibility = View.INVISIBLE
+            }
+            appButtonMainConnect.isEnabled = true
+        }
+    }
+
+    private fun disconnectBluetooth() {
         connectedDevice?.second?.mac?.let { bluetoothManager.closeDevice(it) }
         bluetoothManager.close()
         deviceStatus = DeviceStatus.Disconnected
 
-        with(binding) {
-            appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothdisconnected)
-            appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
-
-            appTextviewMainSensorvalue.visibility = View.INVISIBLE
-            appTextviewMainPwmvalue.visibility = View.INVISIBLE
-            appTextviewMainComvalue.visibility = View.INVISIBLE
-        }
+        setView(false)
     }
 
     private fun onConnected(device: BluetoothDevice, connectedDevice: BluetoothSerialDevice) {
@@ -163,8 +195,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         deviceStatus = DeviceStatus.Connected
-        binding.appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothconnected)
-        binding.appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothdisconnect)
+        setView(true)
         registerSensorListener()
 
         showMessage(getString(R.string.app_message_main_devicevonnected, device.name))
@@ -221,39 +252,48 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         axisX = getSensorValue(axisX)
         axisY = getSensorValue(axisY)
 
-        binding.appTextviewMainSensorvalue.text = getString(R.string.app_text_main_sensorvalues, axisX, axisY)
+        binding.appTextviewMainSensorvalue.text =
+            getString(R.string.app_text_main_sensorvalues, axisX, axisY)
 
         var pwmSpeed = getPwmSpeed(axisX)
         var speedLeft: Int
         var speedRight: Int
 
-        if (axisX > 0) {
+        if (axisX != 0f) {
             val motorSpeed = getMotorSpeed(axisY, pwmSpeed.absoluteValue)
-            speedLeft = motorSpeed.first * -1
-            speedRight = motorSpeed.second * -1
-        } else if (axisX < 0) {
-            val motorSpeed = getMotorSpeed(axisY, pwmSpeed.absoluteValue)
-            speedLeft = motorSpeed.first
-            speedRight = motorSpeed.second
+            if (axisX > 0) {
+                speedLeft = -motorSpeed.first
+                speedRight = -motorSpeed.second
+            } else {
+                speedLeft = motorSpeed.first
+                speedRight = motorSpeed.second
+            }
         } else {
             pwmSpeed = getPwmSpeed(axisY)
             speedLeft = 0
             speedRight = 0
 
-            if (pwmSpeed > 0) {
-                if (axisY < 0) { speedLeft = pwmSpeed } else { speedRight = pwmSpeed }
+            if (pwmSpeed != 0) {
+                speedLeft = pwmSpeed
+                speedRight = -pwmSpeed
             }
         }
 
         val content = "$speedLeft$$speedRight$\n"
-        binding.appTextviewMainPwmvalue.text = getString(R.string.app_text_main_pwmvalues, speedLeft, speedRight)
+        binding.appTextviewMainPwmvalue.text =
+            getString(R.string.app_text_main_pwmvalues, speedLeft, speedRight)
         binding.appTextviewMainComvalue.text = content
 
+        sendMessage(content)
+    }
+
+
+    private fun sendMessage(content: String, handlingDisconnect: Boolean = true) {
         try {
             deviceInterface?.sendMessage(content)
         } catch (iae: IllegalArgumentException) {
             iae.printStackTrace()
-            disconnectDevice()
+            if (handlingDisconnect) disconnectDevice()
         }
     }
 
@@ -279,11 +319,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             value < MIN -> MIN
             value > MAX -> MAX
             value.absoluteValue < MID -> 0f
-            else -> value
+            else -> value - MID
         }
 
     override fun onDestroy() {
-        disconnectDevice()
+        disconnectBluetooth()
         disposables.dispose()
         super.onDestroy()
     }
@@ -295,5 +335,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         private const val MIN = -5.5f
         private const val MID = 0.7f
         private const val MAX_PWM = 255
+
+        private const val DISCONNECT_DELAY = 500L
     }
 }
