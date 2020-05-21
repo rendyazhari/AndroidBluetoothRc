@@ -1,5 +1,6 @@
 package com.rendyazhari.bluetoothrc.presentation.screen.main
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothDevice
 import android.content.Context
@@ -12,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.View
+import android.widget.RadioButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.rendyazhari.bluetoothrc.R
@@ -66,13 +68,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         initSensor()
     }
 
+    @SuppressLint("ResourceType")
     private fun initUi() {
-        binding.appTextviewMainStatus.text = getString(
-            R.string.app_label_main_bluetoothstatus,
-            getString(R.string.app_text_main_bluetoothdisconnected)
-        )
-
-        binding.appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
+        (1..SPEED_COUNT).forEach {
+            val radioButton = RadioButton(this).apply {
+                text = it.toString()
+                id = it
+            }
+            binding.appRadiogroupMainSpeed.addView(radioButton)
+        }
+        binding.appRadiogroupMainSpeed.check(1)
+        setView(false)
     }
 
     private fun initListener() {
@@ -162,6 +168,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 appTextviewMainSensorvalue.visibility = View.VISIBLE
                 appTextviewMainPwmvalue.visibility = View.VISIBLE
                 appTextviewMainComvalue.visibility = View.VISIBLE
+                binding.appRadiogroupMainSpeed.visibility = View.VISIBLE
             } else {
                 appTextviewMainStatus.text = getString(R.string.app_text_main_bluetoothdisconnected)
                 appButtonMainConnect.text = getString(R.string.app_action_main_bluetoothconnect)
@@ -169,6 +176,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 appTextviewMainSensorvalue.visibility = View.INVISIBLE
                 appTextviewMainPwmvalue.visibility = View.INVISIBLE
                 appTextviewMainComvalue.visibility = View.INVISIBLE
+                binding.appRadiogroupMainSpeed.visibility = View.INVISIBLE
             }
             appButtonMainConnect.isEnabled = true
         }
@@ -297,13 +305,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
-    private fun getPwmSpeed(value: Float) = ((value / MAX) * MAX_PWM).toInt()
+    private fun getPwmSpeed(value: Float) =
+            (((value / MAX) * MAX_PWM) *
+                    (binding.appRadiogroupMainSpeed.checkedRadioButtonId.toFloat() / SPEED_COUNT)).toInt()
 
     private fun getMotorSpeed(y: Float, pwmSpeed: Int): Pair<Int, Int> {
         val speedLeft: Int
         val speedRight: Int
 
-        if (y < 0) { //Kiri
+        if (y < 0) {
             speedRight = pwmSpeed
             speedLeft = (((MIN - y) / MIN) * pwmSpeed).toInt()
         } else {
@@ -335,6 +345,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         private const val MIN = -5.5f
         private const val MID = 0.7f
         private const val MAX_PWM = 255
+
+        private const val SPEED_COUNT = 5
 
         private const val DISCONNECT_DELAY = 500L
     }

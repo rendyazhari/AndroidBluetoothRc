@@ -17,4 +17,5 @@
 
     <string name="app_action_main_bluetoothconnect">Connect</string>
     <string name="app_action_main_bluetoothdisconnect">Disconnect</string>
+    <string name="app_action_main_speed">Speed</string>
 </resources>
